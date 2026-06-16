@@ -72,7 +72,10 @@ class Issue {
       repo: data.repo,
       number: data.number,
       title: data.title,
+      author: getLogin(data.user),
       status: data.state,
+      state_reason: data.state_reason,
+      date_assigned: utils.fromDateString(data.date_assigned),
       date_created: new Date(data.created_at),
       date_closed: utils.fromDateString(data.closed_at),
       milestone: data.milestone
@@ -96,7 +99,10 @@ class Issue {
       repo: data.repo,
       number: data.number,
       title: data.title,
+      author: data.author,
       status: data.status,
+      state_reason: data.state_reason,
+      date_assigned: utils.fromUnixTime(data.date_assigned),
       date_created: utils.fromUnixTime(data.date_created),
       date_closed: utils.fromUnixTime(data.date_closed),
       milestone: data.milestone_title

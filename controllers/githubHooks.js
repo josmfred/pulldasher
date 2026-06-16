@@ -3,7 +3,6 @@ import Promise from "bluebird";
 import debug from "../lib/debug.js";
 import Pull from "../models/pull.js";
 import Signature from "../models/signature.js";
-import Issue from "../models/issue.js";
 import Comment from "../models/comment.js";
 import Review from "../models/review.js";
 import Status from "../models/status.js";
@@ -196,51 +195,16 @@ function handleIssueEvent(body) {
 
   var doneHandling = handleLabelEvents(body);
 
-  // If we get issue events for pull requests, we have to go refresh from
-  // the api cause the body here is just a subset of pull request fields
-  // See https://docs.github.com/en/rest/reference/issues#list-issues-assigned-to-the-authenticated-user
-  //
-  // > GitHub's REST API v3 considers every pull request an issue, but
-  // not every issue is a pull request. For this reason, "Issues"
-  // endpoints may return both issues and pull requests in the response.
-  // You can identify pull requests by the pull_request key.
-  if (body.issue.pull_request) {
-    return doneHandling.then(function () {
-      // Not returning here cause we don't want to delay replying to the
-      // hook with a 200 since we know what needs to be done.
-      refreshPullOrIssue(body);
-    });
-  }
-
-  switch (body.action) {
-    case "opened":
-      // Always do this for opened issues because a full refresh
-      // is the easiest way to get *who* assigned the initial labels.
-      return doneHandling.then(function () {
-        // Not returning here cause we don't want to delay replying to the
-        // hook with a 200 since we know what needs to be done.
-        refreshPullOrIssue(body);
-      });
-
-    case "reopened":
-    case "closed":
-    case "edited":
-    case "assigned":
-    case "unassigned":
-    // Default case is update the issue
-  }
-
-  return doneHandling
-    .then(function () {
-      // Copy the full name of the repo into the issue object so we can
-      // normalize the structure.
-      body.issue.repo = body.repository.full_name;
-      return Issue.getFromGH(body.issue);
-    })
-    .then(dbManager.updateIssue)
-    .then(function () {
-      return reprocessLabels(body.repository.full_name, body.issue.number);
-    });
+  // Always refresh from the API rather than upserting the webhook body
+  // directly. The body is just a subset of the fields (and for pull requests,
+  // not even an issue), and it carries no events, which we need to attribute
+  // labels and to date the current assignment (date_assigned).
+  // refreshPullOrIssue dispatches pull-vs-issue from the body itself.
+  return doneHandling.then(function () {
+    // Not returning here cause we don't want to delay replying to the
+    // hook with a 200 since we know what needs to be done.
+    refreshPullOrIssue(body);
+  });
 }
 
 /**
@@ -272,18 +236,6 @@ function handleLabelEvents(body) {
       );
   }
   return Promise.resolve();
-}
-
-/**
- * After a label has been added or removed we have to re-process all the labels
- * in case one of them matches one of our configured label updaters.
- */
-function reprocessLabels(repo, issueNumber) {
-  if (!config.labels || !config.labels.length) {
-    return;
-  }
-  debug("Reprocessing labels for Issue #%s in repo %s", issueNumber, repo);
-  return dbManager.getIssue(repo, issueNumber).then(dbManager.updateIssue);
 }
 
 function refreshPullOrIssue(responseBody) {
