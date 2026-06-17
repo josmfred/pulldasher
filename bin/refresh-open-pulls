@@ -1,11 +1,12 @@
 #!/usr/bin/env node
 import { default as debugInit } from '../lib/debug.js';
-import refresh from '../lib/refresh.js';
+import refresh, { reportFailedRepos } from '../lib/refresh.js';
 import db from '../lib/db.js';
 
 debugInit('pulldasher:refresh*');
 
 refresh.openPulls()
-   .done(function () {
+   .done(function (result) {
+      reportFailedRepos(result);
       db.end();
    });

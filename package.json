@@ -9,6 +9,7 @@
     "@fortawesome/fontawesome-svg-core": "^6.1.1",
     "@fortawesome/free-solid-svg-icons": "^6.0.0",
     "@fortawesome/react-fontawesome": "^0.1.17",
+    "@octokit/plugin-retry": "^7.2.1",
     "@octokit/plugin-throttling": "^9.4.0",
     "@octokit/rest": "^21.1.0",
     "@types/underscore": "^1.10.24",
@@ -66,7 +67,7 @@
     "frontend:watch": "webpack --watch --config ./frontend/webpack.dev.config.js",
     "postinstall": "npm run build",
     "build": "webpack --config ./frontend/webpack.prod.config.js",
-    "test": "node --test test/*.test.js",
+    "test": "CONFIG_PATH=../test/fixtures/config.js node --test test/*.test.js",
     "precommit": "lint-staged"
   },
   "lint-staged": {
