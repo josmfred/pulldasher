@@ -27,3 +27,18 @@ test("forEachRepo returns empty failedRepos when every repo succeeds", async () 
   assert.deepEqual(failedRepos, []);
   assert.equal(items.length, 3);
 });
+
+test("forEachRepo restricts to an explicit repo subset", async () => {
+  const seen = [];
+  const lambda = (repo) => {
+    seen.push(repo);
+    return Promise.resolve([{ repo }]);
+  };
+
+  const subset = utils.selectRepos(["test/repo-a", "test/repo-c"]);
+  const { items, failedRepos } = await utils.forEachRepo(lambda, { repos: subset });
+
+  assert.deepEqual(seen.sort(), ["test/repo-a", "test/repo-c"]);
+  assert.deepEqual(failedRepos, []);
+  assert.equal(items.length, 2);
+});
