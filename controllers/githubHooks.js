@@ -155,16 +155,15 @@ const HooksController = {
         dbUpdated = dbManager.updateComment(comment);
       }
     } else if (event === "check_run") {
-      const state = utils.mapCheckToStatus(
-        body.check_run.conclusion || body.check_run.status
-      );
+      const conclusion = body.check_run.conclusion || body.check_run.status;
+      const state = utils.mapCheckToStatus(conclusion);
 
       const status = new Status({
         repo: body.repository.full_name,
         sha: body.check_run.head_sha,
         state: state,
         context: body.check_run.name,
-        description: state,
+        description: conclusion,
         target_url: body.check_run.html_url,
         started_at: body.check_run.started_at,
         completed_at: body.check_run.completed_at,
