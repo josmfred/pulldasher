@@ -54,9 +54,32 @@ Signature.parseReview = function parseReview(review, repoFullName, pullNumber) {
     user: review.user,
     created_at: review.submitted_at,
     id: review.id,
+    state: review.state,
   };
 
-  return parseSignatures(reviewData);
+  const signatures = parseSignatures(reviewData);
+
+  // A GitHub "Approve" review counts as a CR signoff even without a
+  // `CR :emoji:` tag in the body. Skip if the body already produced one.
+  if (
+    useGithubApprovalForCr() &&
+    review.state === "APPROVED" &&
+    !signatures.some((sig) => sig.data.type === "CR")
+  ) {
+    signatures.push(
+      new Signature({
+        repo: repoFullName,
+        number: pullNumber,
+        user: review.user,
+        type: "CR",
+        created_at: review.submitted_at,
+        active: true,
+        comment_id: review.id,
+      })
+    );
+  }
+
+  return signatures;
 };
 
 function parseSignatures(data) {
@@ -114,7 +137,11 @@ Signature.compare = function (a, b) {
 };
 
 function hasTag(body, tag) {
-  return tag.regex.test(body);
+  return tag.regex.test(body || "");
+}
+
+function useGithubApprovalForCr() {
+  return config.useGithubApprovalForCr !== false;
 }
 
 export default Signature;

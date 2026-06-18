@@ -66,6 +66,7 @@
     "frontend:watch": "webpack --watch --config ./frontend/webpack.dev.config.js",
     "postinstall": "npm run build",
     "build": "webpack --config ./frontend/webpack.prod.config.js",
+    "test": "node --test test/*.test.js",
     "precommit": "lint-staged"
   },
   "lint-staged": {

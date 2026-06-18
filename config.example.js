@@ -40,8 +40,8 @@ module.exports = {
   //     containing the secret from `hook_secret` below.
   //   - Content type should be `application/x-www-form-urlencoded`
   //   - Choose to be sent individual events, and then check the Issue comments,
-  //     Issues, Pull requests, Pull request review comments, Pushes, and
-  //     Statuses boxes
+  //     Issues, Pull requests, Pull request reviews, Pull request review
+  //     comments, Pushes, and Statuses boxes
   github: {
     // Get this from the GitHub application setup page.
     clientId: "your github application client id",
@@ -62,6 +62,10 @@ module.exports = {
   session: {
     secret: "secret for signing session cookies",
   },
+
+  // When true (default), GitHub PR reviews with state APPROVED count as CR
+  // signoffs without requiring a CR :emoji: tag in the review body.
+  useGithubApprovalForCr: true,
 
   // List of repositories for pulldasher to watch.
   repos: [
