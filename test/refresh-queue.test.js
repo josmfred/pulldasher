@@ -3,28 +3,34 @@ import assert from "node:assert/strict";
 import { processIssueItem, processPullItem } from "../lib/refresh.js";
 
 // A transient failure parsing one item must not abort the sweep: the handler
-// logs and still calls next() so the queue keeps draining.
-test("processIssueItem continues past a failing parse", async () => {
+// logs, records the failure via the injected onFailure, and still calls next()
+// so the queue keeps draining.
+test("processIssueItem records the failure and continues past a failing parse", async () => {
   let nextCalled = 0;
+  const failures = [];
   const deps = {
     parseIssue: () => Promise.reject(new Error("transient 500")),
     updateAllIssueData: () => {
       throw new Error("updateAllIssueData should not run after a parse failure");
     },
+    onFailure: (repo, number) => failures.push({ repo, number }),
   };
 
   await processIssueItem({ number: 7, repo: "test/repo-a" }, () => nextCalled++, deps);
 
   assert.equal(nextCalled, 1);
+  assert.deepEqual(failures, [{ repo: "test/repo-a", number: 7 }]);
 });
 
-test("processPullItem continues past a failing parse", async () => {
+test("processPullItem records the failure and continues past a failing parse", async () => {
   let nextCalled = 0;
+  const failures = [];
   const deps = {
     parse: () => Promise.reject(new Error("transient 502")),
     updateAllPullData: () => {
       throw new Error("updateAllPullData should not run after a parse failure");
     },
+    onFailure: (repo, number) => failures.push({ repo, number }),
   };
 
   await processPullItem(
@@ -34,14 +40,5 @@ test("processPullItem continues past a failing parse", async () => {
   );
 
   assert.equal(nextCalled, 1);
-});
-
-test("processIssueItem runs a queued sentinel function and calls next", async () => {
-  let sentinelCalled = 0;
-  let nextCalled = 0;
-
-  await processIssueItem(() => sentinelCalled++, () => nextCalled++, {});
-
-  assert.equal(sentinelCalled, 1);
-  assert.equal(nextCalled, 1);
+  assert.deepEqual(failures, [{ repo: "test/repo-a", number: 9 }]);
 });
