@@ -26,6 +26,9 @@ test("parseReview creates CR signature from APPROVED review with empty body", ()
   assert.equal(signatures[0].data.type, "CR");
   assert.equal(signatures[0].data.comment_id, 100);
   assert.equal(signatures[0].data.user.login, "reviewer");
+  // Flagged so git-manager exempts it from the commit-date staleness check,
+  // letting an approval carry over a clean master merge.
+  assert.equal(signatures[0].data.fromGithubApproval, true);
 });
 
 test("parseReview keeps single CR signature when body already contains CR tag", () => {
@@ -43,6 +46,9 @@ test("parseReview keeps single CR signature when body already contains CR tag", 
 
   assert.equal(signatures.length, 1);
   assert.equal(signatures[0].data.type, "CR");
+  // The CR came from the emoji tag, not the native approval, so it is NOT
+  // exempt from the staleness check — new commits should still invalidate it.
+  assert.equal(signatures[0].data.fromGithubApproval, false);
 });
 
 test("parseReview ignores CHANGES_REQUESTED reviews", () => {
