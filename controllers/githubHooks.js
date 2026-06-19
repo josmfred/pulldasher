@@ -62,6 +62,9 @@ const HooksController = {
       // Promise that resolves when everything that needs to be done before
       // we call `updatePull` has finished.
       var preUpdate = handleLabelEvents(body);
+      // New commits may carry a GitHub approval over a clean master merge, so
+      // after the cheap DB update we re-derive review state from GitHub.
+      var reconcileAfterUpdate = false;
 
       switch (body.action) {
         case "opened":
@@ -72,17 +75,33 @@ const HooksController = {
           break;
 
         case "synchronize":
+          // Clear prior CR/QA signoffs immediately for snappy feedback. Emoji
+          // CR/QA stay cleared; a carried-over GitHub *approval* is restored by
+          // the full refresh below (see Signature.parseReview / git-manager).
           preUpdate = dbManager.invalidateSignatures(
             body.repository.full_name,
             body.pull_request.number,
             ["QA", "CR"]
           );
+          reconcileAfterUpdate = true;
       }
 
       // Update DB with new pull request content.
-      dbUpdated = preUpdate.then(function () {
-        return dbManager.updatePull(Pull.fromGithubApi(body.pull_request));
-      });
+      dbUpdated = preUpdate
+        .then(function () {
+          return dbManager.updatePull(Pull.fromGithubApi(body.pull_request));
+        })
+        .then(function () {
+          // A `synchronize` webhook never triggers a full refresh on its own,
+          // and Pulldasher has no periodic poll, so re-derive here to pick up
+          // an approval GitHub kept across the new commit(s).
+          if (reconcileAfterUpdate) {
+            return refresh.pull(
+              body.repository.full_name,
+              body.pull_request.number
+            );
+          }
+        });
     } else if (event === "issue_comment") {
       if (body.action === "created") {
         var promises = [];
