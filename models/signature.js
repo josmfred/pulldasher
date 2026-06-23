@@ -18,6 +18,12 @@ function Signature(data) {
     created_at: utils.fromDateString(data.created_at),
     active: data.active,
     comment_id: data.comment_id,
+    // True only for a CR signature synthesized from a GitHub native
+    // "Approve" review (not an emoji `CR` tag). GitHub is the source of
+    // truth for whether such an approval is still valid, so it is exempt
+    // from the "stale after the last commit" check (see git-manager).
+    // In-memory only; not persisted to the DB.
+    fromGithubApproval: data.fromGithubApproval === true,
   };
 }
 
@@ -75,6 +81,7 @@ Signature.parseReview = function parseReview(review, repoFullName, pullNumber) {
         created_at: review.submitted_at,
         active: true,
         comment_id: review.id,
+        fromGithubApproval: true,
       })
     );
   }
