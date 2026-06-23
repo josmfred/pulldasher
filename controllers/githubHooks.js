@@ -87,21 +87,24 @@ const HooksController = {
       }
 
       // Update DB with new pull request content.
-      dbUpdated = preUpdate
-        .then(function () {
-          return dbManager.updatePull(Pull.fromGithubApi(body.pull_request));
-        })
-        .then(function () {
-          // A `synchronize` webhook never triggers a full refresh on its own,
-          // and Pulldasher has no periodic poll, so re-derive here to pick up
-          // an approval GitHub kept across the new commit(s).
-          if (reconcileAfterUpdate) {
-            return refresh.pull(
-              body.repository.full_name,
-              body.pull_request.number
-            );
-          }
+      dbUpdated = preUpdate.then(function () {
+        return dbManager.updatePull(Pull.fromGithubApi(body.pull_request));
+      });
+
+      if (reconcileAfterUpdate) {
+        // A `synchronize` webhook never triggers a full refresh on its own,
+        // and Pulldasher has no periodic poll, so re-derive review state from
+        // GitHub once the cheap DB update lands to pick up an approval GitHub
+        // kept across the new commit(s).
+        //
+        // Fire-and-forget, like every other refresh.pull caller below. Do NOT
+        // fold it into `dbUpdated`: coupling the webhook's HTTP response to a
+        // full, serialized refresh risks GitHub's 10s webhook timeout and
+        // turns a transient refresh failure into a 500 + redelivery storm.
+        dbUpdated.then(function () {
+          refresh.pull(body.repository.full_name, body.pull_request.number);
         });
+      }
     } else if (event === "issue_comment") {
       if (body.action === "created") {
         var promises = [];
