@@ -69,7 +69,7 @@ Signature.parseReview = function parseReview(review, repoFullName, pullNumber) {
   // `CR :emoji:` tag in the body. Skip if the body already produced one.
   if (
     useGithubApprovalForCr() &&
-    review.state === "APPROVED" &&
+    review.state?.toUpperCase() === "APPROVED" &&
     !signatures.some((sig) => sig.data.type === "CR")
   ) {
     signatures.push(
