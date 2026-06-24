@@ -31,6 +31,26 @@ test("parseReview creates CR signature from APPROVED review with empty body", ()
   assert.equal(signatures[0].data.fromGithubApproval, true);
 });
 
+test("parseReview creates CR signature from lowercase webhook approved state", () => {
+  // The `pull_request_review` webhook sends `state: "approved"` (lowercase),
+  // unlike the REST API's `"APPROVED"`. Both must produce a CR signature.
+  const signatures = Signature.parseReview(
+    {
+      id: 103,
+      body: "",
+      state: "approved",
+      user: reviewUser,
+      submitted_at: "2024-01-01T00:00:00Z",
+    },
+    repo,
+    number
+  );
+
+  assert.equal(signatures.length, 1);
+  assert.equal(signatures[0].data.type, "CR");
+  assert.equal(signatures[0].data.fromGithubApproval, true);
+});
+
 test("parseReview keeps single CR signature when body already contains CR tag", () => {
   const signatures = Signature.parseReview(
     {
