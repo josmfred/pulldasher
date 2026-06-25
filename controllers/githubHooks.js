@@ -12,6 +12,8 @@ import getLogin from "../lib/get-user-login.js";
 import utils from "../lib/utils.js";
 import dbManager from "../lib/db-manager.js";
 
+const hooksDebug = debug("pulldasher:hooks");
+
 const HooksController = {
   main: function (req, res) {
     // Variable for promise that will resolve when the hook is known to have
@@ -22,7 +24,7 @@ const HooksController = {
     var secret = req.query.secret;
     if (secret !== config.github.hook_secret) {
       var m = "Invalid Hook Secret: " + secret;
-      debug(m);
+      hooksDebug(m);
       console.error(m);
       return res.status(401).send("Invalid POST");
     }
@@ -42,7 +44,7 @@ const HooksController = {
     }
 
     var event = req.get("X-GitHub-Event");
-    debug("Received GitHub webhook, Event: %s, Action: %s", event, body.action);
+    hooksDebug("Received GitHub webhook, Event: %s, Action: %s", event, body.action);
 
     if (event === "status") {
       const updatedStatus = new Status({
@@ -212,7 +214,7 @@ const HooksController = {
 };
 
 function handleIssueEvent(body) {
-  debug("Webhook action: %s for issue #%s", body.action, body.issue.number);
+  hooksDebug("Webhook action: %s for issue #%s", body.action, body.issue.number);
 
   var doneHandling = handleLabelEvents(body);
 
@@ -239,7 +241,7 @@ function handleLabelEvents(body) {
   var object = body.pull_request || body.issue;
   switch (body.action) {
     case "labeled":
-      debug("Added label: %s", body.label.name);
+      hooksDebug("Added label: %s", body.label.name);
       return dbManager.insertLabel(
         new Label(
           body.label,
@@ -251,7 +253,7 @@ function handleLabelEvents(body) {
       );
 
     case "unlabeled":
-      debug("Removed label: %s", body.label.name);
+      hooksDebug("Removed label: %s", body.label.name);
       return dbManager.deleteLabel(
         new Label(body.label, object.number, body.repository.full_name)
       );

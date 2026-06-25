@@ -1,11 +1,13 @@
 #!/usr/bin/env node
 import { default as debugInit } from '../lib/debug.js';
-import refresh from '../lib/refresh.js';
+import refresh, { reportFailures } from '../lib/refresh.js';
+import selectReposArg from '../lib/select-repos-arg.js';
 import db from '../lib/db.js';
 
 debugInit('pulldasher:refresh*');
 
-refresh.openIssues()
-   .done(function () {
+refresh.openIssues(selectReposArg())
+   .done(function (result) {
+      reportFailures(result);
       db.end();
    });
