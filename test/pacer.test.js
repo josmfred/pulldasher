@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { computePace } from "../lib/pacer.js";
+import { computePace, createPacer, noopPacer } from "../lib/pacer.js";
 
 const NOW = 1_700_000_000_000; // fixed clock (ms); reset values are NOW-relative
 const RESERVE = 1000;
@@ -91,4 +91,41 @@ test("computePace advances the cursor by the requests spent since the last gate"
 
   const eightCalls = computePace({ ...params, used: 1008 });
   assert.equal(eightCalls.delayMs, 8000);
+});
+
+// The no-op pacer the server/webhook path runs against: every call is total, so
+// call sites never need null guards. gate resolves immediately, observe is inert.
+test("noopPacer gate resolves and observe is harmless", async () => {
+  assert.doesNotThrow(() => noopPacer.observe({ "x-ratelimit-remaining": "5" }));
+  assert.doesNotThrow(() => noopPacer.observe(undefined));
+  assert.equal(await noopPacer.gate(), undefined);
+});
+
+// What a real pacer does that the no-op can't: it spaces gates by the
+// consumption it observes. The first gate (no spend yet) is free and sets the
+// baseline; after a burst bumps `x-ratelimit-used`, the next gate must wait out
+// the even-spread interval. Timing the actual delay also exercises the wrapper
+// glue the pure computePace tests don't reach: header parsing, the used-delta
+// cursor across calls, and Promise.delay. Only the lower bound is asserted —
+// timers fire late, never early, so this can't flake.
+test("createPacer spaces consecutive gates by observed consumption", async () => {
+  const pacer = createPacer({ reserve: 10 });
+  // Window ~1–2s out, budget of 10 spendable requests → ~100–200ms per request.
+  const reset = Math.ceil(Date.now() / 1000) + 2;
+  const headers = {
+    "x-ratelimit-remaining": "20",
+    "x-ratelimit-reset": String(reset),
+    "x-ratelimit-used": "100",
+  };
+
+  pacer.observe(headers);
+  await pacer.gate(); // first gate sets the baseline; no spend yet
+
+  pacer.observe({ ...headers, "x-ratelimit-used": "101" }); // one request spent
+  const beforeSecond = Date.now();
+  await pacer.gate();
+  assert.ok(
+    Date.now() - beforeSecond >= 80,
+    "second gate should pace out the request spent since the last gate"
+  );
 });
