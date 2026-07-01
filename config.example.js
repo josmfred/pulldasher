@@ -50,6 +50,11 @@ module.exports = {
     callbackURL: "http://localhost:" + port + "/auth/github/callback",
     // An API token for the backend to make API requests with.
     token: "oauth api token for server-side api calls",
+    // How much of the token's hourly GitHub API quota to reserve for live
+    // webhook/socket traffic. Bulk backfills (bin/refresh-*) pace themselves to
+    // stay above this floor and pause when remaining quota hits it, so a large
+    // backfill never starves normal operation. Defaults to 1000 if omitted.
+    bulkReserve: 1000,
     // This will need to be the same secret you use on the Webhooks page for
     // the repo Pulldasher is going to monitor.
     hook_secret:
