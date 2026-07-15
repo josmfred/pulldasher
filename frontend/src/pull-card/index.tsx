@@ -1,7 +1,6 @@
 import { Pull } from "../pull";
 import { CommitStatuses } from "./commit-statuses";
 import { Participants } from "./participants";
-import { Assignee } from "./assignee";
 import { Age } from "./age";
 import { Flags } from "./flags";
 import { Avatar } from "./avatar";
@@ -89,7 +88,6 @@ export const PullCard = memo(function PullCard({
           ) : (
             <Avatar user={pull.user.login} linkToProfile />
           )}
-          <Assignee pull={pull} />
           <chakra.span fontWeight="bold">
             {pull.getRepoName()} #{pull.number}:{" "}
           </chakra.span>
@@ -181,7 +179,6 @@ export const ClosedPullCard = memo(function ClosedPullCard({
           ) : (
             <Avatar user={pull.user.login} linkToProfile />
           )}
-          <Assignee pull={pull} />
           <chakra.span fontWeight="bold">
             {pull.getRepoName()} #{pull.number}:{" "}
           </chakra.span>
