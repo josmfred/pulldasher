@@ -70,7 +70,6 @@ export const PullCard = memo(function PullCard({
 
   return (
     <Card ref={cardRef} display={show ? undefined : "none"}>
-      <Assignee pull={pull} />
       <Participants pull={pull} />
       <RefreshButton pull={pull} />
       <CommitStatuses pull={pull} />
@@ -90,6 +89,7 @@ export const PullCard = memo(function PullCard({
           ) : (
             <Avatar user={pull.user.login} linkToProfile />
           )}
+          <Assignee pull={pull} />
           <chakra.span fontWeight="bold">
             {pull.getRepoName()} #{pull.number}:{" "}
           </chakra.span>
@@ -181,6 +181,7 @@ export const ClosedPullCard = memo(function ClosedPullCard({
           ) : (
             <Avatar user={pull.user.login} linkToProfile />
           )}
+          <Assignee pull={pull} />
           <chakra.span fontWeight="bold">
             {pull.getRepoName()} #{pull.number}:{" "}
           </chakra.span>
