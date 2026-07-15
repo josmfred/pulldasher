@@ -25,6 +25,7 @@ function DBPull(pull) {
     head_sha: pullData.head.sha,
     base_branch: pullData.base.ref,
     owner: getLogin(pullData.user),
+    // Serialize to a JSON string; MySQL parses it into the `assignees` JSON column.
     assignees: JSON.stringify(pullData.assignees || []),
     cr_req: pullData.cr_req,
     qa_req: pullData.qa_req,

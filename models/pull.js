@@ -281,7 +281,8 @@ class Pull {
       user: {
         login: data.owner,
       },
-      assignees: data.assignees ? JSON.parse(data.assignees) : [],
+      // mysql2 auto-parses the JSON column, so this is already an array (or null).
+      assignees: data.assignees ?? [],
       cr_req: data.cr_req,
       qa_req: data.qa_req,
     };
