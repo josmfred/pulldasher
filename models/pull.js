@@ -225,6 +225,7 @@ class Pull {
       user: {
         login: getLogin(data.user),
       },
+      assignees: (data.assignees || []).map((a) => getLogin(a)),
       commits: data.commits,
       additions: data.additions,
       deletions: data.deletions,
@@ -280,6 +281,7 @@ class Pull {
       user: {
         login: data.owner,
       },
+      assignees: data.assignees ? JSON.parse(data.assignees) : [],
       cr_req: data.cr_req,
       qa_req: data.qa_req,
     };

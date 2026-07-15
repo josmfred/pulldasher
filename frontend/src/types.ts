@@ -125,4 +125,5 @@ export class PullData {
   };
   labels: Label[];
   participants: string[];
+  assignees: string[];
 }

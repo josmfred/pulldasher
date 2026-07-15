@@ -84,6 +84,10 @@ export class Pull extends PullData {
     return this.participants && this.participants.includes(getUser());
   }
 
+  assignedToMe(): boolean {
+    return this.assignees?.includes(getUser()) ?? false;
+  }
+
   hasMyDevBlock(): boolean {
     return this.getDevBlock()?.data.user.login == getUser();
   }
