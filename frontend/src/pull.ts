@@ -45,7 +45,8 @@ export class Pull extends PullData {
 
   isMineViaAffiliation(): boolean {
     return (
-      this.isMine() ||
+      this.authoredByMe() ||
+      this.reviewRequestedFromMe() ||
       this.hasCurrentSig(getUser()) ||
       this.hasOutdatedSig(getUser()) ||
       this.hasMyDevBlock() ||
