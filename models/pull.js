@@ -226,6 +226,9 @@ class Pull {
         login: getLogin(data.user),
       },
       assignees: (data.assignees || []).map((a) => getLogin(a)),
+      requested_reviewers: (data.requested_reviewers || []).map((r) =>
+        getLogin(r)
+      ),
       commits: data.commits,
       additions: data.additions,
       deletions: data.deletions,
@@ -283,6 +286,7 @@ class Pull {
       },
       // mysql2 auto-parses the JSON column, so this is already an array (or null).
       assignees: data.assignees ?? [],
+      requested_reviewers: data.requested_reviewers ?? [],
       cr_req: data.cr_req,
       qa_req: data.qa_req,
     };
