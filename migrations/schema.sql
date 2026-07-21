@@ -76,9 +76,12 @@ CREATE TABLE IF NOT EXISTS `issues` (
   `milestone_title` varchar(255) COLLATE utf8mb4_general_ci DEFAULT NULL,
   `milestone_due_on` int DEFAULT NULL,
   `assignee` varchar(255) COLLATE utf8mb4_general_ci DEFAULT NULL,
+  `author` varchar(255) COLLATE utf8mb4_general_ci NOT NULL DEFAULT 'ghost',
   `status` varchar(30) COLLATE utf8mb4_general_ci DEFAULT NULL,
+  `state_reason` varchar(30) COLLATE utf8mb4_general_ci DEFAULT NULL,
   `date_closed` int DEFAULT NULL,
   `date_created` int DEFAULT NULL,
+  `date_assigned` int DEFAULT NULL,
   PRIMARY KEY (`repo`,`number`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
@@ -137,6 +140,8 @@ CREATE TABLE IF NOT EXISTS `pulls` (
   `head_sha` char(40) COLLATE utf8mb4_general_ci NOT NULL,
   `base_branch` varchar(255) COLLATE utf8mb4_general_ci NOT NULL,
   `owner` varchar(255) COLLATE utf8mb4_general_ci NOT NULL,
+  `assignees` json DEFAULT NULL,
+  `requested_reviewers` json DEFAULT NULL,
   `cr_req` int NOT NULL DEFAULT '2',
   `qa_req` int NOT NULL DEFAULT '1',
   `date` int unsigned DEFAULT NULL,

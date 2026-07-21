@@ -4,7 +4,6 @@ import Promise from "bluebird";
 import debug from "../lib/debug.js";
 import Pull from "../models/pull.js";
 import Signature from "../models/signature.js";
-import Issue from "../models/issue.js";
 import Comment from "../models/comment.js";
 import Review from "../models/review.js";
 import Status from "../models/status.js";
@@ -13,6 +12,8 @@ import refresh from "../lib/refresh.js";
 import getLogin from "../lib/get-user-login.js";
 import utils from "../lib/utils.js";
 import dbManager from "../lib/db-manager.js";
+
+const hooksDebug = debug("pulldasher:hooks");
 
 /**
  * Verify the GitHub webhook signature (X-Hub-Signature-256) using HMAC-SHA256.
@@ -43,7 +44,7 @@ const HooksController = {
     var comment;
 
     if (!verifyWebhookSignature(req)) {
-      debug("Invalid webhook signature");
+      hooksDebug("Invalid webhook signature");
       console.error("Invalid webhook signature");
       return res.status(401).send("Invalid POST");
     }
@@ -63,7 +64,7 @@ const HooksController = {
     }
 
     var event = req.get("X-GitHub-Event");
-    debug("Received GitHub webhook, Event: %s, Action: %s", event, body.action);
+    hooksDebug("Received GitHub webhook, Event: %s, Action: %s", event, body.action);
 
     if (event === "status") {
       const updatedStatus = new Status({
@@ -83,6 +84,9 @@ const HooksController = {
       // Promise that resolves when everything that needs to be done before
       // we call `updatePull` has finished.
       var preUpdate = handleLabelEvents(body);
+      // New commits may carry a GitHub approval over a clean master merge, so
+      // after the cheap DB update we re-derive review state from GitHub.
+      var reconcileAfterUpdate = false;
 
       switch (body.action) {
         case "opened":
@@ -93,17 +97,36 @@ const HooksController = {
           break;
 
         case "synchronize":
+          // Clear prior CR/QA signoffs immediately for snappy feedback. Emoji
+          // CR/QA stay cleared; a carried-over GitHub *approval* is restored by
+          // the full refresh below (see Signature.parseReview / git-manager).
           preUpdate = dbManager.invalidateSignatures(
             body.repository.full_name,
             body.pull_request.number,
             ["QA", "CR"]
           );
+          reconcileAfterUpdate = true;
       }
 
       // Update DB with new pull request content.
       dbUpdated = preUpdate.then(function () {
         return dbManager.updatePull(Pull.fromGithubApi(body.pull_request));
       });
+
+      if (reconcileAfterUpdate) {
+        // A `synchronize` webhook never triggers a full refresh on its own,
+        // and Pulldasher has no periodic poll, so re-derive review state from
+        // GitHub once the cheap DB update lands to pick up an approval GitHub
+        // kept across the new commit(s).
+        //
+        // Fire-and-forget, like every other refresh.pull caller below. Do NOT
+        // fold it into `dbUpdated`: coupling the webhook's HTTP response to a
+        // full, serialized refresh risks GitHub's 10s webhook timeout and
+        // turns a transient refresh failure into a 500 + redelivery storm.
+        dbUpdated.then(function () {
+          refresh.pull(body.repository.full_name, body.pull_request.number);
+        });
+      }
     } else if (event === "issue_comment") {
       if (body.action === "created") {
         var promises = [];
@@ -176,16 +199,15 @@ const HooksController = {
         dbUpdated = dbManager.updateComment(comment);
       }
     } else if (event === "check_run") {
-      const state = utils.mapCheckToStatus(
-        body.check_run.conclusion || body.check_run.status
-      );
+      const conclusion = body.check_run.conclusion || body.check_run.status;
+      const state = utils.mapCheckToStatus(conclusion);
 
       const status = new Status({
         repo: body.repository.full_name,
         sha: body.check_run.head_sha,
         state: state,
         context: body.check_run.name,
-        description: state,
+        description: conclusion,
         target_url: body.check_run.html_url,
         started_at: body.check_run.started_at,
         completed_at: body.check_run.completed_at,
@@ -212,55 +234,20 @@ const HooksController = {
 };
 
 function handleIssueEvent(body) {
-  debug("Webhook action: %s for issue #%s", body.action, body.issue.number);
+  hooksDebug("Webhook action: %s for issue #%s", body.action, body.issue.number);
 
   var doneHandling = handleLabelEvents(body);
 
-  // If we get issue events for pull requests, we have to go refresh from
-  // the api cause the body here is just a subset of pull request fields
-  // See https://docs.github.com/en/rest/reference/issues#list-issues-assigned-to-the-authenticated-user
-  //
-  // > GitHub's REST API v3 considers every pull request an issue, but
-  // not every issue is a pull request. For this reason, "Issues"
-  // endpoints may return both issues and pull requests in the response.
-  // You can identify pull requests by the pull_request key.
-  if (body.issue.pull_request) {
-    return doneHandling.then(function () {
-      // Not returning here cause we don't want to delay replying to the
-      // hook with a 200 since we know what needs to be done.
-      refreshPullOrIssue(body);
-    });
-  }
-
-  switch (body.action) {
-    case "opened":
-      // Always do this for opened issues because a full refresh
-      // is the easiest way to get *who* assigned the initial labels.
-      return doneHandling.then(function () {
-        // Not returning here cause we don't want to delay replying to the
-        // hook with a 200 since we know what needs to be done.
-        refreshPullOrIssue(body);
-      });
-
-    case "reopened":
-    case "closed":
-    case "edited":
-    case "assigned":
-    case "unassigned":
-    // Default case is update the issue
-  }
-
-  return doneHandling
-    .then(function () {
-      // Copy the full name of the repo into the issue object so we can
-      // normalize the structure.
-      body.issue.repo = body.repository.full_name;
-      return Issue.getFromGH(body.issue);
-    })
-    .then(dbManager.updateIssue)
-    .then(function () {
-      return reprocessLabels(body.repository.full_name, body.issue.number);
-    });
+  // Always refresh from the API rather than upserting the webhook body
+  // directly. The body is just a subset of the fields (and for pull requests,
+  // not even an issue), and it carries no events, which we need to attribute
+  // labels and to date the current assignment (date_assigned).
+  // refreshPullOrIssue dispatches pull-vs-issue from the body itself.
+  return doneHandling.then(function () {
+    // Not returning here cause we don't want to delay replying to the
+    // hook with a 200 since we know what needs to be done.
+    refreshPullOrIssue(body);
+  });
 }
 
 /**
@@ -274,7 +261,7 @@ function handleLabelEvents(body) {
   var object = body.pull_request || body.issue;
   switch (body.action) {
     case "labeled":
-      debug("Added label: %s", body.label.name);
+      hooksDebug("Added label: %s", body.label.name);
       return dbManager.insertLabel(
         new Label(
           body.label,
@@ -286,24 +273,12 @@ function handleLabelEvents(body) {
       );
 
     case "unlabeled":
-      debug("Removed label: %s", body.label.name);
+      hooksDebug("Removed label: %s", body.label.name);
       return dbManager.deleteLabel(
         new Label(body.label, object.number, body.repository.full_name)
       );
   }
   return Promise.resolve();
-}
-
-/**
- * After a label has been added or removed we have to re-process all the labels
- * in case one of them matches one of our configured label updaters.
- */
-function reprocessLabels(repo, issueNumber) {
-  if (!config.labels || !config.labels.length) {
-    return;
-  }
-  debug("Reprocessing labels for Issue #%s in repo %s", issueNumber, repo);
-  return dbManager.getIssue(repo, issueNumber).then(dbManager.updateIssue);
 }
 
 function refreshPullOrIssue(responseBody) {

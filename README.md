@@ -89,12 +89,17 @@ the pull is considered ready. Conversely, if a pull only touches test code, you
 might put only `qa_req 0` on it to say that it doesn't need to be QAed, since
 it should break tests if there's anything wrong with it.
 
-When you CR a pull, add a comment to it with `CR :emoji:` in it.
+When you CR a pull, you can either approve it on GitHub (using GitHub's native
+**Approve** review action) or add a comment containing `CR :emoji:`.
 (`emoji` is simply a word or words between colons; we often use GitHub emoji,
-which follow this format.) This comment is considered a _signoff_. Pulldasher
-will update the pull's display to indicate that one of the required CRs is
-completed. Similarly, when you QA a pull, add a comment containing
-`QA :emoji:`, and the number of QA signoffs will increase.
+which follow this format.) A GitHub approval and a `CR :emoji:` comment are both
+considered _signoffs_. Pulldasher will update the pull's display to indicate
+that one of the required CRs is completed. Similarly, when you QA a pull, add a
+comment containing `QA :emoji:`, and the number of QA signoffs will increase.
+
+To honor GitHub approvals, enable the **Pull request reviews** webhook event on
+tracked repositories. Set `useGithubApprovalForCr: false` in `config.js` to
+disable this and require `CR :emoji:` comments (legacy behavior).
 
 ## Feature Details
 

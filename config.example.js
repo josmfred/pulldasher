@@ -54,8 +54,8 @@ module.exports = {
   //     containing the secret from `hook_secret` below.
   //   - Content type should be `application/x-www-form-urlencoded`
   //   - Choose to be sent individual events, and then check the Issue comments,
-  //     Issues, Pull requests, Pull request review comments, Pushes, and
-  //     Statuses boxes
+  //     Issues, Pull requests, Pull request reviews, Pull request review
+  //     comments, Pushes, and Statuses boxes
   github: {
     // --- OAuth App credentials (for user login) ---
     // Get these from the GitHub OAuth Application setup page.
@@ -79,7 +79,11 @@ module.exports = {
     // --- Classic PAT auth (DEPRECATED, use GitHub App above instead) ---
     // If appId is not set, Pulldasher falls back to this token.
     // token: "classic personal access token for server-side api calls",
-
+    // How much of the token's hourly GitHub API quota to reserve for live
+    // webhook/socket traffic. Bulk backfills (bin/refresh-*) pace themselves to
+    // stay above this floor and pause when remaining quota hits it, so a large
+    // backfill never starves normal operation. Defaults to 1000 if omitted.
+    bulkReserve: 1000,
     // This will need to be the same secret you use on the Webhooks page for
     // the repo Pulldasher is going to monitor.
     hook_secret:
@@ -92,6 +96,10 @@ module.exports = {
   session: {
     secret: "secret for signing session cookies",
   },
+
+  // When true (default), GitHub PR reviews with state APPROVED count as CR
+  // signoffs without requiring a CR :emoji: tag in the review body.
+  useGithubApprovalForCr: true,
 
   // List of repositories for pulldasher to watch.
   repos: [

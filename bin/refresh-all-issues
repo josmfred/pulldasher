@@ -1,11 +1,15 @@
 #!/usr/bin/env node
 import { default as debugInit } from '../lib/debug.js';
-import refresh from '../lib/refresh.js';
+import { createPacedRefresh, reportFailures } from '../lib/refresh.js';
+import selectReposArg from '../lib/select-repos-arg.js';
 import db from '../lib/db.js';
 
 debugInit('pulldasher:refresh*');
 
-refresh.allIssues()
-   .done(function () {
+const refresh = createPacedRefresh();
+
+refresh.allIssues(selectReposArg())
+   .done(function (result) {
+      reportFailures(result);
       db.end();
    });
